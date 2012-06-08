@@ -17,7 +17,11 @@ def mainPage():
     global thisPlugin
     
     addDirectoryItem("TV", {"action":"showTV","link":"http://www.gameone.de/tv"}, "")
+    #Blog
+    #Games
     addDirectoryItem("Playtube", {"action":"showPlaytube","link":"http://www.gameone.de/playtube"}, "")
+    addDirectoryItem("Podcast", {"action":"showPodcast","link":"http://feeds.feedburner.com/mtvgameone?format=xml"}, "")
+    
     xbmcplugin.endOfDirectory(thisPlugin)
     
 def showTV(link):
@@ -29,7 +33,7 @@ def showTV(link):
         menu_name = episode.group(4)+" ("+episode.group(3)+")"
         menu_link = baseLink + episode.group(1)
         menu_pic = episode.group(2)
-        addDirectoryItem(menu_name, {"action":"showEpisode","link":menu_link}, menu_pic, False)
+        addDirectoryItem(menu_name, {"action":"playEpisode","link":menu_link}, menu_pic, False)
     
     xbmcplugin.endOfDirectory(thisPlugin)
 
@@ -49,6 +53,20 @@ def showPlaytube(link):
 
     xbmcplugin.endOfDirectory(thisPlugin)
 
+def showPodcast(link):
+    page = load_page(urllib.unquote(link))
+    
+    extractPodcast = re.compile("<item>.*?<title>(.*?)</title>.*?:origLink>(.*?)</feedburner.*?</item>",re.DOTALL)
+    
+    for podcast in extractPodcast.finditer(page):
+        menu_name = podcast.group(1)
+        menu_link = podcast.group(2)
+        addDirectoryItem(menu_name, {"action":"playPodcast","link":menu_link}, "", False)
+    
+    xbmcplugin.endOfDirectory(thisPlugin)
+        
+    
+    
 def showPlaytubeChannel(link):
     page = load_page(urllib.unquote(link))
     
@@ -60,7 +78,7 @@ def showPlaytubeChannel(link):
         menu_name = episode.group(2)
         menu_link = episode.group(1)
         menu_pic = episode.group(3)
-        addDirectoryItem(menu_name, {"action":"showEpisode","link":menu_link}, menu_pic, False)
+        addDirectoryItem(menu_name, {"action":"playEpisode","link":menu_link}, menu_pic, False)
     
     
     extractNextPage = re.compile("<a href=\"([^\".]*?)\" class=\"next_page\" rel=\"next\">(.*?)</a>")
@@ -73,7 +91,7 @@ def showPlaytubeChannel(link):
     xbmcplugin.endOfDirectory(thisPlugin)
 
 
-def showEpisode(link):
+def playEpisode(link):
     page = load_page(urllib.unquote(link))
     
     extractMediaId = re.compile("var so = new SWFObject\(\"http://media.mtvnservices.com/(.*?)\",\"embeddedPlayer\", \"[0-9]*\", \"[0-9]*\", \"(.*?)\", \".*?\"\);")
@@ -86,7 +104,6 @@ def showEpisode(link):
     mediaName = extractMediaName.search(page).group(1)
     
     page = load_page(mediaXML)
-    #extractRtmpUrls = re.compile("<rendition cdn=\".*?\" duration=\"[\.0-9]*\" width=\"[0-9]*\" height=\"([0-9]*)\" type=\".*?\" bitrate=\"[0-9]*\">[\n\ \t]*<src>(.*?)</src>[\n\ \t]*</rendition>")
     extractRtmpUrls = re.compile("<rendition.*? height=[\"\']+([0-9]*)[\"\']+.*?>[\n\ \t]*<src>(.*?)</src>[\n\ \t]*</rendition>")
     
     streamUrl = ""
@@ -98,8 +115,10 @@ def showEpisode(link):
     
     item = xbmcgui.ListItem(mediaName, path=streamUrl)
     xbmcplugin.setResolvedUrl(thisPlugin, True, item)
-    #return False
-    
+
+def playPodcast(link):
+    item = xbmcgui.ListItem(path=urllib.unquote(link))
+    xbmcplugin.setResolvedUrl(thisPlugin, True, item)
 
 def load_page(url):
     print url
@@ -152,12 +171,15 @@ else:
     params = get_params()
     if params['action'] == "showTV":
         showTV(params['link'])
-    elif params['action'] == "showEpisode":
-        showEpisode(params['link'])
     elif params['action'] == "showPlaytube":
         showPlaytube(params['link'])
+    elif params['action'] == "showPodcast":
+        showPodcast(params['link'])
     elif params['action'] == "showPlaytubeChannel":
         showPlaytubeChannel(params['link'])
+    elif params['action'] == "playEpisode":
+        playEpisode(params['link'])
+    elif params['action'] == "playPodcast":
+        playPodcast(params['link'])
     else:
         mainPage()
-
