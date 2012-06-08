@@ -5,7 +5,6 @@ import sys
 import urllib, urllib2
 import re
 
-
 addon = xbmcaddon.Addon(id='plugin.video.gameone')
 
 thisPlugin = int(sys.argv[1])
@@ -38,6 +37,27 @@ def showTV(link):
     xbmcplugin.endOfDirectory(thisPlugin)
 
 def showPlaytube(link):
+    addDirectoryItem("Channels", {"action":"showPlaytubeChannels","link":"http://www.gameone.de/playtube"}, "")
+    addDirectoryItem("Beliebteste Videos", {"action":"showPlaytubeFilter","link":"http://www.gameone.de/playtube/filter/popular"}, "")
+    addDirectoryItem("Meistgesehen", {"action":"showPlaytubeFilter","link":"http://www.gameone.de/playtube/filter/hottest"}, "")
+    addDirectoryItem("Neueste Videos", {"action":"showPlaytubeFilter","link":"http://www.gameone.de/playtube/filter/latest"}, "")
+    addDirectoryItem("Meist diskutiert ", {"action":"showPlaytubeFilter","link":"http://www.gameone.de/playtube/filter/discussed"}, "")
+    xbmcplugin.endOfDirectory(thisPlugin)
+
+def showPlaytubeFilter(link):
+    page = load_page(urllib.unquote(link))
+    extractEpisode = re.compile("<li class='[^'.]*?'>\n<div class='.*?'>.*?<a href=\"(.*?)\">(.*?)</a>.*?<img alt=\".*?\" src=\"(.*?)\" />",re.DOTALL)
+    
+    for episode in extractEpisode.finditer(page):
+        menu_name = episode.group(2)
+        menu_link = episode.group(1)
+        menu_pic = episode.group(3)
+        addDirectoryItem(menu_name, {"action":"playEpisode","link":menu_link}, menu_pic, False)
+    
+    showNextPage(page,"showPlaytubeFilter")
+    xbmcplugin.endOfDirectory(thisPlugin)
+
+def showPlaytubeChannels(link):
     page = load_page(urllib.unquote(link))
     
     #Channels
@@ -49,11 +69,11 @@ def showPlaytube(link):
     for channel in extractChannel.finditer(channels):
         menu_name = channel.group(2)
         menu_link = channel.group(1)
-        addDirectoryItem(menu_name, {"action":"showPlaytubeChannel","link":menu_link}, "", True)
+        addDirectoryItem(menu_name, {"action":"showPlaytubeChannelsChannel","link":menu_link}, "", True)
 
     xbmcplugin.endOfDirectory(thisPlugin)
     
-def showPlaytubeChannel(link):
+def showPlaytubeChannelsChannel(link):
     page = load_page(urllib.unquote(link))
     
     extractEpisodes = re.compile("<ul class='(videos teasers|teasers videos)*'>(.*?)</ul>\n<div class='clear'>",re.DOTALL)
@@ -66,16 +86,8 @@ def showPlaytubeChannel(link):
         menu_pic = episode.group(3)
         addDirectoryItem(menu_name, {"action":"playEpisode","link":menu_link}, menu_pic, False)
     
-    showNextPage(page,"showPlaytubeChannel")
+    showNextPage(page,"showPlaytubeChannelsChannel")
     xbmcplugin.endOfDirectory(thisPlugin)
-
-def showNextPage(page, action):
-    extractNextPage = re.compile("<a href=\"([^\".]*?)\" class=\"next_page\" rel=\"next\">(.*?)</a>")
-    nextPage = extractNextPage.search(page)
-    if nextPage is not None:
-        menu_link = baseLink + nextPage.group(1)
-        menu_name = nextPage.group(2)
-        addDirectoryItem(menu_name, {"action":action,"link":menu_link}, "", True)
 
 def showPodcast(link):
     page = load_page(urllib.unquote(link))
@@ -90,7 +102,6 @@ def showPodcast(link):
     xbmcplugin.endOfDirectory(thisPlugin)
 
 def showGames(link):
-    #page = load_page(urllib.unquote(link))
     addDirectoryItem("Suche", {"action":"searchGame"}, "")
     addDirectoryItem("Beliebte Games", {"action":"showGamesFavorite","link":urllib.unquote(link)}, "")
     for x in range(ord("A"),ord("A")+26):
@@ -201,6 +212,14 @@ def playEpisode(link):
 def playPodcast(link):
     item = xbmcgui.ListItem(path=urllib.unquote(link))
     xbmcplugin.setResolvedUrl(thisPlugin, True, item)
+    
+def showNextPage(page, action):
+    extractNextPage = re.compile("<a href=\"([^\".]*?)\" class=\"next_page\" rel=\"next\">(.*?)</a>")
+    nextPage = extractNextPage.search(page)
+    if nextPage is not None:
+        menu_link = baseLink + nextPage.group(1)
+        menu_name = nextPage.group(2)
+        addDirectoryItem(menu_name, {"action":action,"link":menu_link}, "", True)
 
 def load_page(url):
     print url
@@ -253,12 +272,16 @@ else:
     params = get_params()
     if params['action'] == "showTV":
         showTV(params['link'])
-    elif params['action'] == "showPlaytube":
-        showPlaytube(params['link'])
     elif params['action'] == "showPodcast":
         showPodcast(params['link'])
-    elif params['action'] == "showPlaytubeChannel":
-        showPlaytubeChannel(params['link'])
+    elif params['action'] == "showPlaytube":
+        showPlaytube(params['link'])
+    elif params['action'] == "showPlaytubeChannels":
+        showPlaytubeChannels(params['link'])
+    elif params['action'] == "showPlaytubeChannelsChannel":
+        showPlaytubeChannelsChannel(params['link'])
+    elif params['action'] == "showPlaytubeFilter":
+        showPlaytubeFilter(params['link'])
     elif params['action'] == "showGames":
         showGames(params['link'])
     elif params['action'] == "showGamesLetter":
