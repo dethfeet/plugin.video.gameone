@@ -18,7 +18,7 @@ def mainPage():
     
     addDirectoryItem("TV", {"action":"showTV","link":"http://www.gameone.de/tv"}, "")
     #Blog
-    #Games
+    addDirectoryItem("Games", {"action":"showGames","link":"http://www.gameone.de/games"}, "")
     addDirectoryItem("Playtube", {"action":"showPlaytube","link":"http://www.gameone.de/playtube"}, "")
     addDirectoryItem("Podcast", {"action":"showPodcast","link":"http://feeds.feedburner.com/mtvgameone?format=xml"}, "")
     
@@ -52,20 +52,6 @@ def showPlaytube(link):
         addDirectoryItem(menu_name, {"action":"showPlaytubeChannel","link":menu_link}, "", True)
 
     xbmcplugin.endOfDirectory(thisPlugin)
-
-def showPodcast(link):
-    page = load_page(urllib.unquote(link))
-    
-    extractPodcast = re.compile("<item>.*?<title>(.*?)</title>.*?:origLink>(.*?)</feedburner.*?</item>",re.DOTALL)
-    
-    for podcast in extractPodcast.finditer(page):
-        menu_name = podcast.group(1)
-        menu_link = podcast.group(2)
-        addDirectoryItem(menu_name, {"action":"playPodcast","link":menu_link}, "", False)
-    
-    xbmcplugin.endOfDirectory(thisPlugin)
-        
-    
     
 def showPlaytubeChannel(link):
     page = load_page(urllib.unquote(link))
@@ -80,17 +66,113 @@ def showPlaytubeChannel(link):
         menu_pic = episode.group(3)
         addDirectoryItem(menu_name, {"action":"playEpisode","link":menu_link}, menu_pic, False)
     
-    
+    showNextPage(page,"showPlaytubeChannel")
+    xbmcplugin.endOfDirectory(thisPlugin)
+
+def showNextPage(page, action):
     extractNextPage = re.compile("<a href=\"([^\".]*?)\" class=\"next_page\" rel=\"next\">(.*?)</a>")
     nextPage = extractNextPage.search(page)
     if nextPage is not None:
         menu_link = baseLink + nextPage.group(1)
         menu_name = nextPage.group(2)
-        addDirectoryItem(menu_name, {"action":"showPlaytubeChannel","link":menu_link}, "", True)
+        addDirectoryItem(menu_name, {"action":action,"link":menu_link}, "", True)
+
+def showPodcast(link):
+    page = load_page(urllib.unquote(link))
+    
+    extractPodcast = re.compile("<item>.*?<title>(.*?)</title>.*?:origLink>(.*?)</feedburner.*?</item>",re.DOTALL)
+    
+    for podcast in extractPodcast.finditer(page):
+        menu_name = podcast.group(1)
+        menu_link = podcast.group(2)
+        addDirectoryItem(menu_name, {"action":"playPodcast","link":menu_link}, "", False)
     
     xbmcplugin.endOfDirectory(thisPlugin)
 
+def showGames(link):
+    #page = load_page(urllib.unquote(link))
+    addDirectoryItem("Suche", {"action":"searchGame"}, "")
+    addDirectoryItem("Beliebte Games", {"action":"showGamesFavorite","link":urllib.unquote(link)}, "")
+    for x in range(ord("A"),ord("A")+26):
+        addDirectoryItem(chr(x), {"action":"showGamesLetter","link":baseLink + "/games/by_letter/"+chr(x)}, "")
+    addDirectoryItem("#", {"action":"showGamesLetter","link":baseLink + "/games/by_letter/"+"%23"}, "")
+    xbmcplugin.endOfDirectory(thisPlugin)
 
+def showGamesLetter(link):
+    url = baseLink + "/games/by_letter/" + link
+    page = load_page(urllib.unquote(link))
+    
+    extractGames = re.compile("<div class='by_letter_item'>.*?<img .*?src=\"(.*?)\".*?<a href=\"(.*?)\">(.*?)</a>",re.DOTALL)
+
+    for gameItem in extractGames.finditer(page):
+        menu_pic = gameItem.group(1)
+        menu_link = gameItem.group(2)
+        menu_name = gameItem.group(3)
+    
+        addDirectoryItem(menu_name, {"action":"showGamesLetterGame","link":menu_link}, menu_pic)
+    
+    showNextPage(page, "showGamesLetter")
+    xbmcplugin.endOfDirectory(thisPlugin)
+    
+def showGamesLetterGame(link):
+    page = load_page(urllib.unquote(link))
+    gameCategory = re.compile("<div class='game_video_list' id='.*?'>.*?<h3>(.*?)</h3>(.*?)</ul>\n\n</div>",re.DOTALL)  
+    
+    gameCategoryVideo = re.compile("<li class='.*?'>.*?<img.*?src=\"(.*?)\" />.*?<h5><a href=\"(.*?)\">(.*?)</a>.*?\n</li>",re.DOTALL)
+    
+    for category in gameCategory.finditer(page):
+        category_title = category.group(1)
+        category_content = category.group(2)
+        for video in gameCategoryVideo.finditer(category_content):
+            video_img = video.group(1)
+            video_link = video.group(2)
+            video_title = category_title + " - " + video.group(3)
+            addDirectoryItem(video_title, {"action":"playEpisode","link":video_link}, video_img, False)
+
+    xbmcplugin.endOfDirectory(thisPlugin)
+    
+def showGamesFavorite(link):
+    page = load_page(urllib.unquote(link))
+    
+    mostViewed = re.compile("<div id='most_viewed'>.*?</div>",re.DOTALL)
+    mostViewedVideo = re.compile("<h5><a href=\"(.*?)\">(.*?)</a></h5>")
+    
+    mostViewedContent = mostViewed.search(page).group(0)
+    
+    for video in mostViewedVideo.finditer(mostViewedContent):
+        addDirectoryItem(video.group(2), {"action":"showGamesLetterGame","link":video.group(1)}, "", True)
+    
+    xbmcplugin.endOfDirectory(thisPlugin)
+
+def searchGame():
+    keyboard = xbmc.Keyboard("")
+    keyboard.doModal();
+    searchString = keyboard.getText()
+    searchString = searchString.strip()
+    searchString = urllib.quote_plus(searchString)
+    
+    if searchString == "":
+        return False
+    
+    searchUrl = "http://www.gameone.de/search/games?q=%s&tag=&user_id=" % (searchString)
+    
+    searchGameResult(searchUrl)
+
+def searchGameResult(searchUrl):
+    page = load_page(urllib.unquote(searchUrl))
+    
+    games = re.compile("<li class=''>.*?<h5><a href=\"(.*?)\">(.*?)</a></h5>.*?<img.*?src=\"(.*?)\" />.*?</li>",re.DOTALL)
+    
+    for game in games.finditer(page):
+        video_link=game.group(1)
+        video_title=game.group(2)
+        video_img = game.group(3)
+        addDirectoryItem(video_title, {"action":"showGamesLetterGame","link":video_link}, video_img, True)
+
+    showNextPage(page, "searchGameResult")
+    
+    xbmcplugin.endOfDirectory(thisPlugin)
+  
 def playEpisode(link):
     page = load_page(urllib.unquote(link))
     
@@ -104,7 +186,7 @@ def playEpisode(link):
     mediaName = extractMediaName.search(page).group(1)
     
     page = load_page(mediaXML)
-    extractRtmpUrls = re.compile("<rendition.*? height=[\"\']+([0-9]*)[\"\']+.*?>[\n\ \t]*<src>(.*?)</src>[\n\ \t]*</rendition>")
+    extractRtmpUrls = re.compile("<rendition.*?height=[\"\']+([0-9]*)[\"\']+.*?>[\n\ \t]*<src>(.*?)</src>[\n\ \t]*</rendition>")
     
     streamUrl = ""
     streamHeight = 0
@@ -177,6 +259,18 @@ else:
         showPodcast(params['link'])
     elif params['action'] == "showPlaytubeChannel":
         showPlaytubeChannel(params['link'])
+    elif params['action'] == "showGames":
+        showGames(params['link'])
+    elif params['action'] == "showGamesLetter":
+        showGamesLetter(params['link'])
+    elif params['action'] == "showGamesLetterGame":
+        showGamesLetterGame(params['link'])
+    elif params['action'] == "showGamesFavorite":
+        showGamesFavorite(params['link'])
+    elif params['action'] == "searchGame":
+        searchGame()
+    elif params['action'] == "searchGameResult":
+        searchGameResult(params['link'])
     elif params['action'] == "playEpisode":
         playEpisode(params['link'])
     elif params['action'] == "playPodcast":
