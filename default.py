@@ -195,6 +195,7 @@ def playEpisode(link):
     extractMediaName = re.compile("<title>(.*?)</title>")
     extractMediaPlayer = re.compile("<media:player url='(.*?)'></media:player>")
     mediaXML = extractMediaXML.search(page).group(1)
+    mediaXML = mediaXML.replace("&amp;","&")
     mediaName = extractMediaName.search(page).group(1)
     mediaPlayer = extractMediaPlayer.search(page).group(1)
     
