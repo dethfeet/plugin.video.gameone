@@ -193,8 +193,15 @@ def playEpisode(link):
     page = load_page(apiLink+mediaId)
     extractMediaXML = re.compile("<media:content duration='[0-9\.]*' .*?type='text/xml' url='(.*?)'></media:content>")
     extractMediaName = re.compile("<title>(.*?)</title>")
+    extractMediaPlayer = re.compile("<media:player url='(.*?)'></media:player>")
     mediaXML = extractMediaXML.search(page).group(1)
     mediaName = extractMediaName.search(page).group(1)
+    mediaPlayer = extractMediaPlayer.search(page).group(1)
+    
+    #GET the 302 redirect URL
+    req = urllib2.Request(mediaPlayer)
+    response = urllib2.urlopen(req)
+    mediaPlayer = response.geturl()
     
     page = load_page(mediaXML)
     extractRtmpUrls = re.compile("<rendition.*?height=[\"\']+([0-9]*)[\"\']+.*?>[\n\ \t]*<src>(.*?)</src>[\n\ \t]*</rendition>")
@@ -205,6 +212,8 @@ def playEpisode(link):
     for rtmpItem in extractRtmpUrls.finditer(page):
         if rtmpItem.group(1)>streamHeight:
             streamUrl = rtmpItem.group(2)
+    
+    streamUrl = streamUrl + " swfUrl=" + mediaPlayer + " swfVfy=1"
     
     item = xbmcgui.ListItem(mediaName, path=streamUrl)
     xbmcplugin.setResolvedUrl(thisPlugin, True, item)
