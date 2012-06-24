@@ -11,7 +11,7 @@
     <provides>video</provides>
   </extension>
   <extension point="xbmc.addon.metadata">
-    <language>en</language>
+    <language>de</language>
     <platform>all</platform>
     <summary lang="en">gameone.de</summary>
     <description lang="en">gameone.de</description>
